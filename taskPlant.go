@@ -12,7 +12,7 @@ func main() {
 	fmt.Println("Exporting task dependencies...")
 
 	// Run task export command
-	cmd := exec.Command("task", "export", "status:pending")
+	cmd := exec.Command("task", "export")
 	output, err := cmd.StdoutPipe()
 	if err != nil {
 		fmt.Println("Error running task export command:", err)
@@ -32,11 +32,11 @@ func main() {
 	var dependencies []string
 	for scanner.Scan() {
 		task := scanner.Text()
-		if strings.HasPrefix(task, "depends: ") {
+		if strings.Contains(task, "depends") && !strings.Contains(task, "pending") {
 			fmt.Println("Found task with dependencies: ", task)
 			dependencies = append(dependencies, task)
 		} else {
-			fmt.Println("task without dependencies: ", task)
+			// fmt.Println("task without dependencies: ", task)
 			tasks = append(tasks, task)
 		}
 	}
@@ -65,13 +65,16 @@ func main() {
 
 	// Add dependencies to PlantUML code
 	for _, dep := range dependencies {
-		parts := strings.SplitN(dep, "depends: ", 2)
+		parts := strings.SplitN(dep, "depends", 2)
 		if len(parts) != 2 {
 			continue
 		}
-		parent := strings.TrimSpace(parts[1])
-		child := strings.TrimSpace(parts[0])
-		lines = append(lines, fmt.Sprintf("%s --> %s", parent, child))
+		parent := strings.TrimSpace(parts[0])
+		children := strings.TrimSpace(parts[1])
+		for _, child := range strings.Split(children, ",") {
+			childID := strings.Trim(child, "[]\"")
+			lines = append(lines, fmt.Sprintf("%s --> %s", parent, childID))
+		}
 	}
 
 	lines = append(lines, "@enduml")
