@@ -1,95 +1,57 @@
 package main
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
-	"os"
+	"io/ioutil"
+	"log"
 	"os/exec"
 	"strings"
 )
 
+type Task struct {
+	ID          int      `json:"id"`
+	Description string   `json:"description"`
+	Due         string   `json:"due"`
+	End         string   `json:"end"`
+	Entry       string   `json:"entry"`
+	Modified    string   `json:"modified"`
+	Project     string   `json:"project"`
+	Status      string   `json:"status"`
+	UUID        string   `json:"uuid"`
+	Wait        string   `json:"wait"`
+	Depends     []string `json:"depends"`
+	Urgency     float64  `json:"urgency"`
+}
+
 func main() {
-	fmt.Println("Exporting task dependencies...")
-
-	// Run task export command
 	cmd := exec.Command("task", "export")
-	output, err := cmd.StdoutPipe()
+	output, err := cmd.Output()
 	if err != nil {
-		fmt.Println("Error running task export command:", err)
-		return
-	}
-	defer output.Close()
-
-	// Start command and scan output
-	scanner := bufio.NewScanner(output)
-	if err := cmd.Start(); err != nil {
-		fmt.Println("Error starting task export command:", err)
-		return
+		log.Fatal(err)
 	}
 
-	// Parse tasks to generate PlantUML code
-	var tasks []string
+	var tasks []Task
+	err = json.Unmarshal(output, &tasks)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	var dependencies []string
-	for scanner.Scan() {
-		task := scanner.Text()
-		if strings.Contains(task, "depends") && !strings.Contains(task, "pending") {
-			fmt.Println("Found task with dependencies: ", task)
-			dependencies = append(dependencies, task)
-		} else {
-			// fmt.Println("task without dependencies: ", task)
-			tasks = append(tasks, task)
-		}
-	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error scanning task export output:", err)
-		return
-	}
-
-	var lines []string
-	lines = append(lines, "@startuml")
-	lines = append(lines, "skinparam monochrome true")
-	lines = append(lines, "skinparam defaultFontName Courier")
-	lines = append(lines, "skinparam ArrowFontName Courier")
-
-	// Add tasks to PlantUML code
 	for _, task := range tasks {
-		parts := strings.SplitN(task, "description:", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		id := strings.TrimSpace(parts[0])
-		desc := strings.TrimSpace(parts[1])
-		lines = append(lines, fmt.Sprintf("task %s { %s }", id, desc))
-	}
-
-	// Add dependencies to PlantUML code
-	for _, dep := range dependencies {
-		parts := strings.SplitN(dep, "depends", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		parent := strings.TrimSpace(parts[0])
-		children := strings.TrimSpace(parts[1])
-		for _, child := range strings.Split(children, ",") {
-			childID := strings.Trim(child, "[]\"")
-			lines = append(lines, fmt.Sprintf("%s --> %s", parent, childID))
+		if len(task.Depends) > 0 {
+			for _, dep := range task.Depends {
+				dependencies = append(dependencies, fmt.Sprintf("%s --> %s : %s", dep, task.UUID, task.Description))
+			}
 		}
 	}
 
-	lines = append(lines, "@enduml")
-
-	// Write PlantUML code to file
-	file, err := os.Create("dependencies.puml")
+	puml := fmt.Sprintf("@startuml\n\n%s\n\n@enduml", strings.Join(dependencies, "\n"))
+	err = ioutil.WriteFile("dependencies.puml", []byte(puml), 0644)
 	if err != nil {
-		fmt.Println("Error creating file:", err)
-		return
-	}
-	defer file.Close()
-
-	for _, line := range lines {
-		fmt.Fprintln(file, line)
+		log.Fatal(err)
 	}
 
-	fmt.Println("Task dependencies exported to dependencies.puml")
+	fmt.Println("Dependencies written to dependencies.puml")
 }
