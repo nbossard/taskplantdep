@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,26 +9,59 @@ import (
 )
 
 func main() {
-	// Run taskwarrior dependency command
-	cmd := exec.Command("task", "dependency")
-	output, err := cmd.Output()
+	// Run task export command
+	cmd := exec.Command("task", "export", "status:pending")
+	output, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println("Error running task dependency command:", err)
+		fmt.Println("Error running task export command:", err)
+		return
+	}
+	defer output.Close()
+
+	// Start command and scan output
+	scanner := bufio.NewScanner(output)
+	if err := cmd.Start(); err != nil {
+		fmt.Println("Error starting task export command:", err)
 		return
 	}
 
-	// Parse output to generate PlantUML code
+	// Parse tasks to generate PlantUML code
+	var tasks []string
+	var dependencies []string
+	for scanner.Scan() {
+		task := scanner.Text()
+		if strings.HasPrefix(task, "depends: ") {
+			dependencies = append(dependencies, task)
+		} else {
+			tasks = append(tasks, task)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println("Error scanning task export output:", err)
+		return
+	}
+
 	var lines []string
 	lines = append(lines, "@startuml")
 	lines = append(lines, "skinparam monochrome true")
 	lines = append(lines, "skinparam defaultFontName Courier")
 	lines = append(lines, "skinparam ArrowFontName Courier")
 
-	for _, line := range strings.Split(string(output), "\n") {
-		if line == "" {
+	// Add tasks to PlantUML code
+	for _, task := range tasks {
+		parts := strings.SplitN(task, "description:", 2)
+		if len(parts) != 2 {
 			continue
 		}
-		parts := strings.Split(line, " depends on ")
+		id := strings.TrimSpace(parts[0])
+		desc := strings.TrimSpace(parts[1])
+		lines = append(lines, fmt.Sprintf("task %s { %s }", id, desc))
+	}
+
+	// Add dependencies to PlantUML code
+	for _, dep := range dependencies {
+		parts := strings.SplitN(dep, "depends: ", 2)
 		if len(parts) != 2 {
 			continue
 		}
