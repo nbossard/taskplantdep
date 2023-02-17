@@ -9,6 +9,8 @@ import (
 )
 
 func main() {
+	fmt.Println("Exporting task dependencies...")
+
 	// Run task export command
 	cmd := exec.Command("task", "export", "status:pending")
 	output, err := cmd.StdoutPipe()
