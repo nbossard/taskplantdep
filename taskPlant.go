@@ -33,8 +33,10 @@ func main() {
 	for scanner.Scan() {
 		task := scanner.Text()
 		if strings.HasPrefix(task, "depends: ") {
+			fmt.Println("Found task with dependencies: ", task)
 			dependencies = append(dependencies, task)
 		} else {
+			fmt.Println("task without dependencies: ", task)
 			tasks = append(tasks, task)
 		}
 	}
