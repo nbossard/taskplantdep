@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type Task struct {
+type exportedTask struct {
 	ID          int      `json:"id"`
 	Description string   `json:"description"`
 	Due         string   `json:"due"`
@@ -27,12 +27,14 @@ type Task struct {
 
 func main() {
 	cmd := exec.Command("task", "export")
+
 	output, err := cmd.Output()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var tasks []Task
+	var tasks []exportedTask
+
 	err = json.Unmarshal(output, &tasks)
 	if err != nil {
 		log.Fatal(err)
@@ -41,16 +43,16 @@ func main() {
 	var outputLines []string
 
 	tasks = makeUUIDsObjectCompatible(tasks)
-
+	tasks = cleanDescriptions(tasks)
 	tasks = cleanDepends(tasks)
 
-	// write object lines
+	// generate object lines
 	// e.g : object "fin formation début" as 09a3937e99a540cba226fa0fa59399e4
 	for _, task := range tasks {
 		outputLines = append(outputLines, fmt.Sprintf("object \"%s\" as %s", task.Description, task.UUID))
 	}
 
-	// write dependency lines
+	// generate dependency lines
 	for _, task := range tasks {
 		if len(task.Depends) > 0 {
 			for _, dep := range task.Depends {
@@ -70,7 +72,7 @@ func main() {
 
 // cleanDepends is a bug turnaround.
 // Some depends value are surrounded by [\" and \"] and some are not, remove them.
-func cleanDepends(tasks []Task) []Task {
+func cleanDepends(tasks []exportedTask) []exportedTask {
 	for i, task := range tasks {
 		for j, dep := range task.Depends {
 			if strings.HasSuffix(dep, "]") {
@@ -107,7 +109,7 @@ func cleanDepends(tasks []Task) []Task {
 // remove all dashes from UUIDS in depends
 // remove all carriage returns from descriptions
 // replace all " with '
-func makeUUIDsObjectCompatible(tasks []Task) []Task {
+func makeUUIDsObjectCompatible(tasks []exportedTask) []exportedTask {
 	for i, task := range tasks {
 		tasks[i].UUID = strings.Replace(task.UUID, "-", "", -1)
 		for j, dep := range task.Depends {
@@ -118,7 +120,7 @@ func makeUUIDsObjectCompatible(tasks []Task) []Task {
 }
 
 // cleanDescriptions cleans all descriptions.
-func cleanDescriptions(tasks []Task) []Task {
+func cleanDescriptions(tasks []exportedTask) []exportedTask {
 	for i, task := range tasks {
 		tasks[i].Description = cleanOneDescription(task.Description)
 	}
