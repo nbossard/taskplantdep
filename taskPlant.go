@@ -40,9 +40,6 @@ func main() {
 
 	var outputLines []string
 
-	tasks = keepOnlyTasksOfStatus(tasks, "pending")
-	tasks = keepOnlyTasksWithoutTag(tasks, "PERSO")
-
 	tasks = makeUUIDsObjectCompatible(tasks)
 
 	tasks = cleanDepends(tasks)
@@ -113,9 +110,6 @@ func cleanDepends(tasks []Task) []Task {
 func makeUUIDsObjectCompatible(tasks []Task) []Task {
 	for i, task := range tasks {
 		tasks[i].UUID = strings.Replace(task.UUID, "-", "", -1)
-		tasks[i].Description = strings.Replace(task.Description, "\r", " ", -1)
-		tasks[i].Description = strings.Replace(tasks[i].Description, "\n", " ", -1)
-		tasks[i].Description = strings.Replace(tasks[i].Description, "\"", "'", -1)
 		for j, dep := range task.Depends {
 			tasks[i].Depends[j] = strings.Replace(dep, "-", "", -1)
 		}
@@ -123,37 +117,20 @@ func makeUUIDsObjectCompatible(tasks []Task) []Task {
 	return tasks
 }
 
-// keepOnlyTasksOfStatus returns only tasks of the given status
-func keepOnlyTasksOfStatus(tasks []Task, parStatus string) []Task {
-	var filteredTasks []Task
-	for _, task := range tasks {
-		if task.Status == parStatus {
-			filteredTasks = append(filteredTasks, task)
-		}
+// cleanDescriptions cleans all descriptions.
+func cleanDescriptions(tasks []Task) []Task {
+	for i, task := range tasks {
+		tasks[i].Description = cleanOneDescription(task.Description)
 	}
-	return filteredTasks
+	return tasks
 }
 
-// keepOnlyTasksWithoutTag returns only tasks without the given tag
-// each task can or not have a tag
-// parTag can appear as part of tags[Ø] (two or more words separated by a space)
-// or be full tags[Ø] or be full tags[1]
-func keepOnlyTasksWithoutTag(tasks []Task, parTag string) []Task {
-	var filteredTasks []Task
-	for _, task := range tasks {
-		if len(task.Tags) == 0 {
-			filteredTasks = append(filteredTasks, task)
-		} else {
-			foundTag := false
-			for _, tag := range task.Tags {
-				if strings.Contains(tag, parTag) {
-					foundTag = true
-				}
-			}
-			if !foundTag {
-				filteredTasks = append(filteredTasks, task)
-			}
-		}
-	}
-	return filteredTasks
+// cleanOneDescription cleans one description.
+// Removes all carriage returns from descriptions.
+// Also replaces all " with '.
+func cleanOneDescription(parDescription string) string {
+	parDescription = strings.Replace(parDescription, "\r", " ", -1)
+	parDescription = strings.Replace(parDescription, "\n", " ", -1)
+	parDescription = strings.Replace(parDescription, "\"", "'", -1)
+	return parDescription
 }
