@@ -1,3 +1,3 @@
-module github.com/nbossard/taskPlantDep
+module taskplantdep
 
 go 1.18

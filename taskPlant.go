@@ -7,62 +7,61 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+	"taskplantdep/cleaning"
+	"taskplantdep/model"
 )
 
-type exportedTask struct {
-	ID          int      `json:"id"`
-	Description string   `json:"description"`
-	Due         string   `json:"due"`
-	End         string   `json:"end"`
-	Entry       string   `json:"entry"`
-	Modified    string   `json:"modified"`
-	Project     string   `json:"project"`
-	Status      string   `json:"status"`
-	UUID        string   `json:"uuid"`
-	Wait        string   `json:"wait"`
-	Depends     []string `json:"depends"`
-	Urgency     float64  `json:"urgency"`
-	Tags        []string `json:"tags"`
-}
-
 func main() {
-	cmd := exec.Command("task", "export")
 
-	output, err := cmd.Output()
-	if err != nil {
-		log.Fatal(err)
-	}
+	filter := "-PERSO status:pending"
+	filteredTasks := retrieveTasks(filter)
+	allTasks := retrieveTasks("")
+	fmt.Printf("Found %d filtered tasks\n", len(filteredTasks))
+	fmt.Printf("Found %d all tasks\n", len(allTasks))
 
-	var tasks []exportedTask
+	var depsLines []string
+	// objectLines is a map uuid -> object line
+	objectPlantUML := make(map[string]string)
+	neededObjPlantUML := make(map[string]string)
 
-	err = json.Unmarshal(output, &tasks)
-	if err != nil {
-		log.Fatal(err)
-	}
+	filteredTasks = cleaning.CleanDescriptions(filteredTasks)
+	filteredTasks = cleaning.CleanDepends(filteredTasks)
 
-	var outputLines []string
-
-	tasks = makeUUIDsObjectCompatible(tasks)
-	tasks = cleanDescriptions(tasks)
-	tasks = cleanDepends(tasks)
-
-	// generate object lines
-	// e.g : object "fin formation début" as 09a3937e99a540cba226fa0fa59399e4
-	for _, task := range tasks {
-		outputLines = append(outputLines, fmt.Sprintf("object \"%s\" as %s", task.Description, task.UUID))
+	// generate object lines for all tasks
+	// e.g : object "fin formation" as 09a3937e99a540cba226fa0fa59399e4
+	for _, task := range allTasks {
+		objectPlantUML[task.UUID] = fmt.Sprintf("object \"%d: %s\" as %s", task.ID, task.Description, task.GetUUIDCleaned())
+		// display urgency with only two digits
+		objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : urgency = %.2f", task.GetUUIDCleaned(), task.Urgency)
+		// display project if not empty
+		if task.Project != "" {
+			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : project = %s", task.GetUUIDCleaned(), task.Project)
+		}
+		if task.Due != "" {
+			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : due = %s", task.GetUUIDCleaned(), task.Due)
+		}
 	}
 
 	// generate dependency lines
-	for _, task := range tasks {
+	for _, task := range filteredTasks {
 		if len(task.Depends) > 0 {
 			for _, dep := range task.Depends {
-				outputLines = append(outputLines, fmt.Sprintf("%s --> %s", dep, task.UUID))
+				depsLines = append(depsLines, fmt.Sprintf("%s <-- %s", model.MakeOneUUIDCompatible(dep), task.GetUUIDCleaned()))
+				neededObjPlantUML[dep] = objectPlantUML[dep]
+				neededObjPlantUML[task.UUID] = objectPlantUML[task.UUID]
 			}
 		}
 	}
 
-	puml := fmt.Sprintf("@startuml\n\n%s\n\n@enduml", strings.Join(outputLines, "\n"))
-	err = ioutil.WriteFile("dependencies.puml", []byte(puml), 0644)
+	// generate object lines for filtered tasks
+	var objectLines []string
+	for _, task := range neededObjPlantUML {
+		objectLines = append(objectLines, task)
+	}
+
+	puml := fmt.Sprintf("@startuml\n\n%s\n\n%s\n\n@enduml", strings.Join(objectLines, "\n"), strings.Join(depsLines, "\n"))
+
+	err := ioutil.WriteFile("dependencies.puml", []byte(puml), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,69 +69,24 @@ func main() {
 	fmt.Println("Dependencies written to dependencies.puml")
 }
 
-// cleanDepends is a bug turnaround.
-// Some depends value are surrounded by [\" and \"] and some are not, remove them.
-func cleanDepends(tasks []exportedTask) []exportedTask {
-	for i, task := range tasks {
-		for j, dep := range task.Depends {
-			if strings.HasSuffix(dep, "]") {
-				tasks[i].Depends[j] = strings.TrimRight(dep, "]")
-			}
-		}
+func retrieveTasks(filter string) []model.ExportedTask {
+	var cmd *exec.Cmd
+	if filter == "" {
+		cmd = exec.Command("task", "export")
+	} else {
+		cmd = exec.Command("task", filter, "export")
 	}
-	for i, task := range tasks {
-		for j, dep := range task.Depends {
-			if strings.HasSuffix(dep, "\"") {
-				tasks[i].Depends[j] = strings.TrimRight(dep, "\"")
-			}
-		}
+
+	output, err := cmd.Output()
+	if err != nil {
+		log.Fatal(err)
 	}
-	for i, task := range tasks {
-		for j, dep := range task.Depends {
-			if strings.HasPrefix(dep, "[") {
-				tasks[i].Depends[j] = strings.TrimLeft(dep, "[\"")
-			}
-		}
-	}
-	for i, task := range tasks {
-		for j, dep := range task.Depends {
-			if strings.HasPrefix(dep, "\"") {
-				tasks[i].Depends[j] = strings.TrimLeft(dep, "\"")
-			}
-		}
+
+	var tasks []model.ExportedTask
+
+	err = json.Unmarshal(output, &tasks)
+	if err != nil {
+		log.Fatal(err)
 	}
 	return tasks
-}
-
-// makeUUIDsObjectCompatible transforms UUIDs to be compatible with PlantUML objects.
-// remove all dashes from UUIDs
-// remove all dashes from UUIDS in depends
-// remove all carriage returns from descriptions
-// replace all " with '
-func makeUUIDsObjectCompatible(tasks []exportedTask) []exportedTask {
-	for i, task := range tasks {
-		tasks[i].UUID = strings.Replace(task.UUID, "-", "", -1)
-		for j, dep := range task.Depends {
-			tasks[i].Depends[j] = strings.Replace(dep, "-", "", -1)
-		}
-	}
-	return tasks
-}
-
-// cleanDescriptions cleans all descriptions.
-func cleanDescriptions(tasks []exportedTask) []exportedTask {
-	for i, task := range tasks {
-		tasks[i].Description = cleanOneDescription(task.Description)
-	}
-	return tasks
-}
-
-// cleanOneDescription cleans one description.
-// Removes all carriage returns from descriptions.
-// Also replaces all " with '.
-func cleanOneDescription(parDescription string) string {
-	parDescription = strings.Replace(parDescription, "\r", " ", -1)
-	parDescription = strings.Replace(parDescription, "\n", " ", -1)
-	parDescription = strings.Replace(parDescription, "\"", "'", -1)
-	return parDescription
 }
