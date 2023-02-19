@@ -32,3 +32,21 @@ func (t *ExportedTask) GetUUIDCleaned() string {
 func MakeOneUUIDCompatible(parUUID string) string {
 	return strings.Replace(parUUID, "-", "", -1)
 }
+
+// GetColorUrgency returns the color according to the urgency of the task.
+// See list of colors here: https://plantuml.com/color
+func (t *ExportedTask) GetColorUrgency() string {
+	if t.Urgency < 1 {
+		return "white"
+	}
+	if t.Urgency < 5 {
+		return "lightGreen"
+	}
+	if t.Urgency < 10 {
+		return "gold"
+	}
+	if t.Urgency < 15 {
+		return "orange"
+	}
+	return "red"
+}
