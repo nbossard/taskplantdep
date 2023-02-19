@@ -4,15 +4,23 @@ import (
 	"encoding/json"
 	"log"
 	"os/exec"
+	"strings"
 	"taskplantdep/model"
 )
 
-func RetrieveTasks(filter string) []model.ExportedTask {
+func RetrieveTasks(parFilter string) []model.ExportedTask {
 	var cmd *exec.Cmd
-	if filter == "" {
+	if parFilter == "" {
 		cmd = exec.Command("task", "export")
 	} else {
-		cmd = exec.Command("task", filter, "export")
+		// parFilter can contain multiple filters separated by space
+		// "export" must be the last argument
+		if strings.Contains(parFilter, " ") {
+			parFilters := strings.Split(parFilter, " ")
+			cmd = exec.Command("task", parFilters[0], parFilters[1], "export")
+		} else {
+			cmd = exec.Command("task", parFilter, "export")
+		}
 	}
 
 	output, err := cmd.Output()

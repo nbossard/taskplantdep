@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,11 +13,20 @@ import (
 
 func main() {
 
-	filter := "-PERSO status:pending"
+	// retrieve parameters from cammand line call
+	// search for parameter "filter"
+	defaultFilter := "status:pending"
+	filterPtr := flag.String("filter", defaultFilter, "filter to apply to taskwarrior")
+	filterOutputPtr := flag.String("output", "dependencies.puml", "output file")
+	flag.Parse()
+	filter := *filterPtr
+	outputFilename := *filterOutputPtr
+
+	// retrieve all tasks from taskwarrior
 	filteredTasks := taskwarrior.RetrieveTasks(filter)
 	allTasks := taskwarrior.RetrieveTasks("")
-	fmt.Printf("Found %d filtered tasks\n", len(filteredTasks))
-	fmt.Printf("Found %d all tasks\n", len(allTasks))
+	fmt.Printf("Found %d filtered tasks with filter \"%s\"\n", len(filteredTasks), filter)
+	fmt.Printf("Found %d tasks in total\n", len(allTasks))
 
 	var depsLines []string
 	// objectLines is a map uuid -> object line
@@ -60,7 +70,7 @@ func main() {
 
 	puml := fmt.Sprintf("@startuml\n\n%s\n\n%s\n\n@enduml", strings.Join(objectLines, "\n"), strings.Join(depsLines, "\n"))
 
-	err := ioutil.WriteFile("dependencies.puml", []byte(puml), 0644)
+	err := ioutil.WriteFile(outputFilename, []byte(puml), 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
