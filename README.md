@@ -2,16 +2,25 @@
 
 <!-- vim: set conceallevel=0 :-->
 
-This tool is to convert you taskwarrior into a PlantUML graphic with dependencies.
+This tool is to convert your taskwarrior tasks into a PlantUML graphic with dependencies.
 
-## usage :
+## usage
+
+basic:
 
 ```bash
 go run taskplant.go
 ```
 
+advanced:
+
+```bash
+go run taskplant.go -filter "project:PERSO" -output "tmp.puml"
+```
+
 This program will generate a file named `dependencies.puml` in the current directory.
-Sample generated file: 
+
+Sample generated file:
 
 ```plantuml
 @startuml
