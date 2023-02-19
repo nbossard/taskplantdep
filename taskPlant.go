@@ -1,21 +1,20 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os/exec"
 	"strings"
 	"taskplantdep/cleaning"
 	"taskplantdep/model"
+	"taskplantdep/taskwarrior"
 )
 
 func main() {
 
 	filter := "-PERSO status:pending"
-	filteredTasks := retrieveTasks(filter)
-	allTasks := retrieveTasks("")
+	filteredTasks := taskwarrior.RetrieveTasks(filter)
+	allTasks := taskwarrior.RetrieveTasks("")
 	fmt.Printf("Found %d filtered tasks\n", len(filteredTasks))
 	fmt.Printf("Found %d all tasks\n", len(allTasks))
 
@@ -67,26 +66,4 @@ func main() {
 	}
 
 	fmt.Println("Dependencies written to dependencies.puml")
-}
-
-func retrieveTasks(filter string) []model.ExportedTask {
-	var cmd *exec.Cmd
-	if filter == "" {
-		cmd = exec.Command("task", "export")
-	} else {
-		cmd = exec.Command("task", filter, "export")
-	}
-
-	output, err := cmd.Output()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var tasks []model.ExportedTask
-
-	err = json.Unmarshal(output, &tasks)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return tasks
 }
