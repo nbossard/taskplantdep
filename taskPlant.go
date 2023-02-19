@@ -52,21 +52,25 @@ func main() {
 	}
 
 	// generate dependency lines
+	nbrDeps := 0
 	for _, task := range filteredTasks {
 		if len(task.Depends) > 0 {
 			for _, dep := range task.Depends {
 				depsLines = append(depsLines, fmt.Sprintf("%s <-- %s", model.MakeOneUUIDCompatible(dep), task.GetUUIDCleaned()))
+				nbrDeps++
 				neededObjPlantUML[dep] = objectPlantUML[dep]
 				neededObjPlantUML[task.UUID] = objectPlantUML[task.UUID]
 			}
 		}
 	}
+	fmt.Printf("Found %d dependencies\n", nbrDeps)
 
 	// generate object lines for filtered tasks
 	var objectLines []string
 	for _, task := range neededObjPlantUML {
 		objectLines = append(objectLines, task)
 	}
+	fmt.Printf("Found %d objects concerned by dependencies\n", len(objectLines))
 
 	puml := fmt.Sprintf("@startuml\n\n%s\n\n%s\n\n@enduml", strings.Join(objectLines, "\n"), strings.Join(depsLines, "\n"))
 
@@ -75,5 +79,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Dependencies written to dependencies.puml")
+	fmt.Println("Finished writing to \"./" + outputFilename + "\"")
+	fmt.Println("FINISHED !")
 }
