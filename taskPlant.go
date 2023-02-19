@@ -16,11 +16,8 @@ func main() {
 	// retrieve parameters from cammand line call
 	// search for parameter "filter"
 	defaultFilter := "status:pending"
-	filterPtr := flag.String("filter", defaultFilter, "filter to apply to taskwarrior")
-	filterOutputPtr := flag.String("output", "dependencies.puml", "output file")
-	flag.Parse()
-	filter := *filterPtr
-	outputFilename := *filterOutputPtr
+	defaultFilename := "dependencies.puml"
+	filter, outputFilename, dispStatus := parseParameters(defaultFilter, defaultFilename)
 
 	// retrieve all tasks from taskwarrior
 	filteredTasks := taskwarrior.RetrieveTasks(filter)
@@ -38,32 +35,10 @@ func main() {
 
 	// generate object lines for all tasks
 	// e.g : object "fin formation" as 09a3937e99a540cba226fa0fa59399e4
-	for _, task := range allTasks {
-		objectPlantUML[task.UUID] = fmt.Sprintf("object \"%d: %s\" as %s #%s", task.ID, task.GetDescriptionCleaned(), task.GetUUIDCleaned(), task.GetColorUrgency())
-		// display urgency with only two digits
-		objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : urgency = %.2f", task.GetUUIDCleaned(), task.Urgency)
-		// display project if not empty
-		if task.Project != "" {
-			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : project = %s", task.GetUUIDCleaned(), task.Project)
-		}
-		if task.Due != "" {
-			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : due = %s", task.GetUUIDCleaned(), task.Due)
-		}
-	}
+	generateObjectLines(allTasks, objectPlantUML, dispStatus)
 
 	// generate dependency lines
-	nbrDeps := 0
-	for _, task := range filteredTasks {
-		if len(task.Depends) > 0 {
-			for _, dep := range task.Depends {
-				depsLines = append(depsLines, fmt.Sprintf("%s <-- %s", model.MakeOneUUIDCompatible(dep), task.GetUUIDCleaned()))
-				nbrDeps++
-				neededObjPlantUML[dep] = objectPlantUML[dep]
-				neededObjPlantUML[task.UUID] = objectPlantUML[task.UUID]
-			}
-		}
-	}
-	fmt.Printf("Found %d dependencies\n", nbrDeps)
+	depsLines = generateDependencyLines(filteredTasks, objectPlantUML, neededObjPlantUML)
 
 	// generate object lines for filtered tasks
 	var objectLines []string
@@ -81,4 +56,60 @@ func main() {
 
 	fmt.Println("Finished writing to \"./" + outputFilename + "\"")
 	fmt.Println("FINISHED !")
+}
+
+// parseParameters parses the parameters from the command line.
+func parseParameters(parDefaultFilter string, parDefaultFilename string) (string, string, bool) {
+	filterPtr := flag.String("filter", parDefaultFilter, "filter to apply to taskwarrior")
+	filterOutputPtr := flag.String("output", parDefaultFilename, "output file")
+	filterDispStatus := flag.Bool("dispstatus", false, "display status of tasks")
+	flag.Parse()
+	filter := *filterPtr
+	outputFilename := *filterOutputPtr
+	dispStatus := *filterDispStatus
+	return filter, outputFilename, dispStatus
+}
+
+func generateObjectLines(allTasks []model.ExportedTask, objectPlantUML map[string]string, dispStatus bool) {
+	for _, task := range allTasks {
+		objectPlantUML[task.UUID] = fmt.Sprintf(
+			"object \"%d: %s\" as %s #%s",
+			task.ID,
+			task.GetDescriptionCleaned(),
+			task.GetUUIDCleaned(),
+			task.GetColorUrgency(),
+		)
+		// display urgency with only two digits
+		objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : urgency = %.2f", task.GetUUIDCleaned(), task.Urgency)
+		// display project if not empty
+		if task.Project != "" {
+			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : project = %s", task.GetUUIDCleaned(), task.Project)
+		}
+		if task.Due != "" {
+			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : due = %s", task.GetUUIDCleaned(), task.Due)
+		}
+		if dispStatus {
+			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : status = %s", task.GetUUIDCleaned(), task.Status)
+		}
+	}
+}
+
+func generateDependencyLines(
+	filteredTasks []model.ExportedTask,
+	objectPlantUML map[string]string,
+	neededObjPlantUML map[string]string,
+) (depsLines []string) {
+	nbrDeps := 0
+	for _, task := range filteredTasks {
+		if len(task.Depends) > 0 {
+			for _, dep := range task.Depends {
+				depsLines = append(depsLines, fmt.Sprintf("%s <-- %s", model.MakeOneUUIDCompatible(dep), task.GetUUIDCleaned()))
+				nbrDeps++
+				neededObjPlantUML[dep] = objectPlantUML[dep]
+				neededObjPlantUML[task.UUID] = objectPlantUML[task.UUID]
+			}
+		}
+	}
+	fmt.Printf("Found %d dependencies\n", nbrDeps)
+	return depsLines
 }
