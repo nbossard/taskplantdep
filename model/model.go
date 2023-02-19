@@ -27,6 +27,12 @@ func (t *ExportedTask) GetUUIDCleaned() string {
 	return MakeOneUUIDCompatible(t.UUID)
 }
 
+// GetDescriptionCleaned returns the description of the task,
+// but without the characters not supported by PlantUML.
+func (t *ExportedTask) GetDescriptionCleaned() string {
+	return CleanOneDescription(t.Description)
+}
+
 // MakeOneUUIDCompatible transforms provided UUID to be compatible with PlantUML objects.
 // Removes all - from UUIDs.
 func MakeOneUUIDCompatible(parUUID string) string {
@@ -49,4 +55,14 @@ func (t *ExportedTask) GetColorUrgency() string {
 		return "orange"
 	}
 	return "red"
+}
+
+// CleanOneDescription cleans one description.
+// Removes all carriage returns from descriptions.
+// Also replaces all " with '.
+func CleanOneDescription(parDescription string) string {
+	parDescription = strings.Replace(parDescription, "\r", " ", -1)
+	parDescription = strings.Replace(parDescription, "\n", " ", -1)
+	parDescription = strings.Replace(parDescription, "\"", "'", -1)
+	return parDescription
 }

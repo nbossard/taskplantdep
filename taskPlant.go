@@ -29,7 +29,7 @@ func main() {
 	// generate object lines for all tasks
 	// e.g : object "fin formation" as 09a3937e99a540cba226fa0fa59399e4
 	for _, task := range allTasks {
-		objectPlantUML[task.UUID] = fmt.Sprintf("object \"%d: %s\" as %s #%s", task.ID, task.Description, task.GetUUIDCleaned(), task.GetColorUrgency())
+		objectPlantUML[task.UUID] = fmt.Sprintf("object \"%d: %s\" as %s #%s", task.ID, task.GetDescriptionCleaned(), task.GetUUIDCleaned(), task.GetColorUrgency())
 		// display urgency with only two digits
 		objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : urgency = %.2f", task.GetUUIDCleaned(), task.Urgency)
 		// display project if not empty

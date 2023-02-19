@@ -40,17 +40,7 @@ func CleanDepends(tasks []model.ExportedTask) []model.ExportedTask {
 // CleanDescriptions cleans all descriptions.
 func CleanDescriptions(tasks []model.ExportedTask) []model.ExportedTask {
 	for i, task := range tasks {
-		tasks[i].Description = cleanOneDescription(task.Description)
+		tasks[i].Description = model.CleanOneDescription(task.Description)
 	}
 	return tasks
-}
-
-// cleanOneDescription cleans one description.
-// Removes all carriage returns from descriptions.
-// Also replaces all " with '.
-func cleanOneDescription(parDescription string) string {
-	parDescription = strings.Replace(parDescription, "\r", " ", -1)
-	parDescription = strings.Replace(parDescription, "\n", " ", -1)
-	parDescription = strings.Replace(parDescription, "\"", "'", -1)
-	return parDescription
 }
