@@ -38,6 +38,7 @@ func main() {
 	generateObjectLines(allTasks, objectPlantUML, dispStatus)
 
 	// generate dependency lines
+	// e.g. : eb8dbf6f1e194f3790e39056b7efc8c2 <-- 50fa3c14f22640fe9ac1f5bb652e8ec5
 	depsLines = generateDependencyLines(filteredTasks, objectPlantUML, neededObjPlantUML)
 
 	// generate object lines for filtered tasks
@@ -47,7 +48,7 @@ func main() {
 	}
 	fmt.Printf("Found %d objects concerned by dependencies\n", len(objectLines))
 
-	puml := fmt.Sprintf("@startuml\n\n%s\n\n%s\n\n@enduml", strings.Join(objectLines, "\n"), strings.Join(depsLines, "\n"))
+	puml := fmt.Sprintf("@startuml PERT\n\n%s\n\n%s\n\n@enduml", strings.Join(objectLines, "\n"), strings.Join(depsLines, "\n"))
 
 	err := ioutil.WriteFile(outputFilename, []byte(puml), 0644)
 	if err != nil {
@@ -62,7 +63,7 @@ func main() {
 func parseParameters(parDefaultFilter string, parDefaultFilename string) (string, string, bool) {
 	filterPtr := flag.String("filter", parDefaultFilter, "filter to apply to taskwarrior")
 	filterOutputPtr := flag.String("output", parDefaultFilename, "output file")
-	filterDispStatus := flag.Bool("dispstatus", false, "display status of tasks")
+	filterDispStatus := flag.Bool("dispstatus", false, "display status of tasks in resulting graph")
 	flag.Parse()
 	filter := *filterPtr
 	outputFilename := *filterOutputPtr
@@ -86,7 +87,8 @@ func generateObjectLines(allTasks []model.ExportedTask, objectPlantUML map[strin
 			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : project = %s", task.GetUUIDCleaned(), task.Project)
 		}
 		if task.Due != "" {
-			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : due = %s", task.GetUUIDCleaned(), task.Due)
+			dueDateFormatted := task.Due[0:4] + "-" + task.Due[4:6] + "-" + task.Due[6:8]
+			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : due = %s", task.GetUUIDCleaned(), dueDateFormatted)
 		}
 		if dispStatus {
 			objectPlantUML[task.UUID] += fmt.Sprintf("\n%s : status = %s", task.GetUUIDCleaned(), task.Status)

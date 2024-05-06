@@ -42,6 +42,9 @@ func MakeOneUUIDCompatible(parUUID string) string {
 // GetColorUrgency returns the color according to the urgency of the task.
 // See list of colors here: https://plantuml.com/color
 func (t *ExportedTask) GetColorUrgency() string {
+	if t.Status == "deleted" {
+		return "lightGray"
+	}
 	if t.Status == "completed" {
 		return "lightGray"
 	}
